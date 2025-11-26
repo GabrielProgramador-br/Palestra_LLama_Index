@@ -9,6 +9,8 @@ from llama_index.core import (
 from llama_index.llms.groq import Groq
 from llama_index.embeddings.huggingface import HuggingFaceEmbedding
 from llama_index.vector_stores.chroma import ChromaVectorStore
+from llama_index.core.response_synthesizers import get_response_synthesizer
+from llama_index.core.query_engine import RetrieverQueryEngine
 import chromadb
 import pymupdf
 
@@ -19,11 +21,9 @@ import pymupdf
 st.set_page_config(page_title="IA com LlamaIndex + Llama 3", layout="wide")
 st.title("🤖 IA com LlamaIndex + Llama 3 (Groq) + PDFs")
 
-st.info("🔑 Sua aplicação está usando Llama 3 via Groq API.")
-
 
 # -------------------------------------
-# CARREGA A KEY DO GROQ VIA SECRETS
+# CARREGAR A GROQ_API_KEY DO SECRETS
 # -------------------------------------
 if "GROQ_API_KEY" not in st.secrets:
     st.error("🚨 Adicione GROQ_API_KEY em Settings → Secrets no Streamlit Cloud.")
@@ -33,14 +33,17 @@ os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
 
 # -------------------------------------
-# CONFIGURAÇÃO DO LLM (GROQ + LLAMA 3)
+# CONFIGURAÇÃO DO LLM (Groq + Llama 3)
 # -------------------------------------
 llm = Groq(model="llama3-70b-8192")
+
+# Forçar o uso do Groq e desativar OpenAI
 Settings.llm = llm
+Settings.ai_model = None
 
 
 # -------------------------------------
-# CONFIGURAÇÃO DOS EMBEDDINGS HF
+# CONFIGURAÇÃO DO EMBEDDER HF
 # -------------------------------------
 embed_model = HuggingFaceEmbedding("sentence-transformers/all-mpnet-base-v2")
 Settings.embed_model = embed_model
@@ -67,7 +70,7 @@ if uploaded_files:
 
 
     # -------------------------------------
-    # CRIAÇÃO DO CHROMA (Base Vetorial)
+    # CHROMA DB (base vetorial persistente)
     # -------------------------------------
     chroma_client = chromadb.PersistentClient(path="./chroma_db")
     collection = chroma_client.get_or_create_collection("llama3_index")
@@ -83,7 +86,7 @@ if uploaded_files:
 
 
     # -------------------------------------
-    # CRIAÇÃO DO ÍNDICE VETORIAL
+    # CRIAÇÃO DO ÍNDICE
     # -------------------------------------
     index = VectorStoreIndex.from_documents(
         docs,
@@ -92,11 +95,14 @@ if uploaded_files:
 
 
     # -------------------------------------
-    # CRIAÇÃO DO QUERY ENGINE
+    # CRIAÇÃO DO QUERY ENGINE (modo seguro)
     # -------------------------------------
-    query_engine = index.as_query_engine(
-        llm=llm,
-        similarity_top_k=5
+    retriever = index.as_retriever(similarity_top_k=5)
+    response_synthesizer = get_response_synthesizer(llm=llm)
+
+    query_engine = RetrieverQueryEngine(
+        retriever=retriever,
+        response_synthesizer=response_synthesizer
     )
 
 
