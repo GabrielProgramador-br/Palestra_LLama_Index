@@ -17,13 +17,7 @@ st.set_page_config(page_title="IA com LlamaIndex + Llama3", layout="wide")
 st.title("🤖 IA com LlamaIndex + Llama 3 (Groq) + PDFs")
 
 
-groq_key = st.text_input("🔑 Insira sua GROQ_API_KEY:", type="password")
-
-if not groq_key:
-    st.warning("Insira a sua GROQ_API_KEY para continuar.")
-    st.stop()
-
-os.environ["GROQ_API_KEY"] = groq_key
+os.environ["GROQ_API_KEY"] = st.secrets["GROQ_API_KEY"]
 
 
 llm = Groq(model="llama3-70b-8192")
